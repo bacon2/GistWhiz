@@ -1,7 +1,7 @@
 import re
 from .units_prefixes import UNIT_PREFIXES
 from .units_bases import UNIT_BASES
-
+FILLER_WORDS = {"the", "of", "a", "an"}
 
 def answers_match(a: str, b: str) -> bool:
     a, b = normalize_text(a), normalize_text(b)
@@ -20,20 +20,25 @@ def answers_match(a: str, b: str) -> bool:
             return True
 
     # Token-based fuzzy match
-    tokens_a, tokens_b = a.split(), b.split()
+    return tokens_match(a.split(), b.split())
+
+def tokens_match(tokens_a, tokens_b):
+    matches = 0
     for word_a in tokens_a:
         if any(simple_fuzzy_match(word_a, word_b) for word_b in tokens_b):
-            continue
-        # allow filler words like “the”, “of”, etc.
-        if word_a in {"the", "of", "a", "an"}:
-            continue
-        return False
-    return True
+            matches += 1
+    # Require at least 80% of the longer list to match
+    return matches >= max(len(tokens_a), len(tokens_b)) * 0.8
+
+
+def strip_fillers(s: str) -> str:
+    return ' '.join(w for w in s.split() if w not in FILLER_WORDS)
 
 def normalize_text(s: str) -> str:
     s = s.lower()
     s = re.sub(r'[^a-z0-9.\s-]', '', s)
     s = re.sub(r'\s+', ' ', s).strip()
+    s = strip_fillers(s)
     return s
 
 def parse_quantity(s: str):
@@ -70,12 +75,28 @@ def replace_synonyms(s: str) -> str:
     return ' '.join(SYNONYMS.get(w, w) for w in words)
 
 def simple_fuzzy_match(a: str, b: str) -> bool:
+    # Exact match
     if a == b:
         return True
+
+    # If one of them is empty
+    if not a or not b:
+        return False
+
+    # Quick reject if lengths are too different
     if abs(len(a) - len(b)) > 2:
         return False
+
+    # For very short strings (1–2 chars), require exact match
+    if len(a) < 3 or len(b) < 3:
+        return False
+
+    # Count mismatches up to the shorter length
     mismatches = sum(c1 != c2 for c1, c2 in zip(a, b))
-    return mismatches / max(len(a), 1) <= 0.2  # ≤20% difference tolerated
+    ratio = mismatches / max(len(a), len(b))
+
+    # Allow up to 20% difference
+    return ratio <= 0.2
 
 if __name__ == "__main__":
     # print(answers_match("5 grams", "5 g"))
