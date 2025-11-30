@@ -3,6 +3,9 @@ from .units_prefixes import UNIT_PREFIXES
 from .units_bases import UNIT_BASES
 FILLER_WORDS = {"the", "of", "a", "an"}
 
+def remove_parentheticals(s: str) -> str:
+    return re.sub(r'\([^)]*\)', '', s)
+
 def answers_match(a: str, b: str) -> bool:
     a, b = normalize_text(a), normalize_text(b)
     a, b = word_to_number(a), word_to_number(b)
@@ -27,14 +30,15 @@ def tokens_match(tokens_a, tokens_b):
     for word_a in tokens_a:
         if any(simple_fuzzy_match(word_a, word_b) for word_b in tokens_b):
             matches += 1
-    # Require at least 80% of the longer list to match
-    return matches >= max(len(tokens_a), len(tokens_b)) * 0.8
+    # Require at least 95% of the longer list to match
+    return matches >= max(len(tokens_a), len(tokens_b)) * 0.95
 
 
 def strip_fillers(s: str) -> str:
     return ' '.join(w for w in s.split() if w not in FILLER_WORDS)
 
 def normalize_text(s: str) -> str:
+    s = remove_parentheticals(s)
     s = s.lower()
     s = re.sub(r'[^a-z0-9.\s-]', '', s)
     s = re.sub(r'\s+', ' ', s).strip()
@@ -101,4 +105,5 @@ def simple_fuzzy_match(a: str, b: str) -> bool:
 if __name__ == "__main__":
     # print(answers_match("5 grams", "5 g"))
     # print(answers_match("5g", "5 grams"))
-    print(answers_match("stomach", "skomach"))
+    # print(answers_match("stomach", "skomach"))
+    print(answers_match("2 mg intranasal, 1 mg intramuscular", "2 mg intranasal, 1 mg intramuscular"))
